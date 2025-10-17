@@ -6,32 +6,51 @@ session_start();
 
 if(isset($_POST['submit'])){
 
-   $email = $_POST['email'];
-   $email = filter_var($email, FILTER_SANITIZE_STRING);
-   $pass = md5($_POST['pass']);
-   $pass = filter_var($pass, FILTER_SANITIZE_STRING);
+   $email = filter_var($_POST['email'], FILTER_SANITIZE_EMAIL);
+   $password = $_POST['pass'];
 
-   $sql = "SELECT * FROM `users` WHERE email = ? AND password = ?";
+   $sql = "SELECT * FROM `users` WHERE email = ?";
    $stmt = $conn->prepare($sql);
-   $stmt->execute([$email, $pass]);
-   $rowCount = $stmt->rowCount();  
-
+   $stmt->execute([$email]);
    $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
-   if($rowCount > 0){
+   if($row){
+      $storedPassword = $row['password'];
+      $isValidPassword = false;
 
-      if($row['user_type'] == 'admin'){
+      if(password_verify($password, $storedPassword)){
+         $isValidPassword = true;
+      }elseif(strlen($storedPassword) === 32 && md5($password) === $storedPassword){
+         $isValidPassword = true;
+      }elseif($password === $storedPassword){
+         $isValidPassword = true;
+      }
 
-         $_SESSION['admin_id'] = $row['id'];
-         header('location:admin_page.php');
+      if($isValidPassword){
 
-      }elseif($row['user_type'] == 'user'){
+         $passwordInfo = password_get_info($storedPassword);
+         if(empty($passwordInfo['algo'])){
+            $rehash = password_hash($password, PASSWORD_DEFAULT);
+            $update = $conn->prepare("UPDATE `users` SET password = ? WHERE id = ?");
+            $update->execute([$rehash, $row['id']]);
+         }
 
-         $_SESSION['user_id'] = $row['id'];
-         header('location:home.php');
+         if($row['user_type'] == 'admin'){
+
+            $_SESSION['admin_id'] = $row['id'];
+            header('location:admin_page.php');
+
+         }elseif($row['user_type'] == 'user'){
+
+            $_SESSION['user_id'] = $row['id'];
+            header('location:home.php');
+
+         }else{
+            $message[] = 'no user found!';
+         }
 
       }else{
-         $message[] = 'no user found!';
+         $message[] = 'incorrect email or password!';
       }
 
    }else{

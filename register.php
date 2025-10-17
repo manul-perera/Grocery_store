@@ -4,14 +4,10 @@ include 'config.php';
 
 if(isset($_POST['submit'])){
 
-   $name = $_POST['name'];
-   $name = filter_var($name, FILTER_SANITIZE_STRING);
-   $email = $_POST['email'];
-   $email = filter_var($email, FILTER_SANITIZE_STRING);
-   $pass = md5($_POST['pass']);
-   $pass = filter_var($pass, FILTER_SANITIZE_STRING);
-   $cpass = md5($_POST['cpass']);
-   $cpass = filter_var($cpass, FILTER_SANITIZE_STRING);
+   $name = filter_var($_POST['name'], FILTER_SANITIZE_STRING);
+   $email = filter_var($_POST['email'], FILTER_SANITIZE_EMAIL);
+   $password = $_POST['pass'];
+   $confirmPassword = $_POST['cpass'];
 
    $image = $_FILES['image']['name'];
    $image = filter_var($image, FILTER_SANITIZE_STRING);
@@ -22,14 +18,15 @@ if(isset($_POST['submit'])){
    $select = $conn->prepare("SELECT * FROM `users` WHERE email = ?");
    $select->execute([$email]);
 
-   if($select->num_rows > 0){
+   if($select->rowCount() > 0){
       $message[] = 'user email already exist!';
    }else{
-      if($pass != $cpass){
+      if($password !== $confirmPassword){
          $message[] = 'confirm password not matched!';
       }else{
+         $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
          $insert = $conn->prepare("INSERT INTO `users`(name, email, password, image) VALUES(?,?,?,?)");
-         $insert->execute([$name, $email, $pass, $image]);
+         $insert->execute([$name, $email, $hashedPassword, $image]);
 
          if($insert){
             if($image_size > 2000000){
